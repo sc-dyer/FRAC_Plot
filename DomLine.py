@@ -5,7 +5,7 @@ from shapely.geometry import Point, LineString, MultiLineString
 from shapely.ops import linemerge, snap
 import copy
 T_THRESH = 1.5
-P_THRESH = 35
+P_THRESH = 50
 class DomLine: 
 
  	def __init__(self, name = None):
@@ -61,3 +61,23 @@ class DomLine:
 
 	 	
  		return False
+
+ 	def extrapLine(self, atEnd = True):
+ 		#Returns a line that is extrapolated in one direction with the same direction as the first or last segment
+ 		#If atEnd = True it will extrapolate the last segment if not, it will extrapolate the first segment
+ 		#This is useful for checking the intersection of reaction lines in a phase diagram
+ 		if atEnd:
+ 			p2 = self.PTline.coords[len(self.PTline)]
+ 			p1 = self.PTline.coords[len(self.PTline)-1]
+ 		else:
+ 			p2 = self.PTline.coords[0]
+ 			p1 = self.PTline.coords[1]
+
+ 		EXTENSION_FAC = 10
+
+ 	def extrapIntersec(self, otherLine):
+ 		#This method will check if the extrapolation of both this line and otherLine intersect
+ 		#Returns the intersection coordinates if it does
+
+
+ 		return None

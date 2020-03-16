@@ -222,6 +222,23 @@ class PltParser:
 		self.domLines = newDomLines
 
 
+	def getLines(self, left = None, right = None):
+	#Returns a list of DomLines that have a left or right side that match left and right
+	#keep as none if one side does not matter
+
+		matchList = []
+		for line in self.domLines:
+			if right == None:
+				if line.leftSide == left:
+					matchList.append(line)
+			elif left ==None:
+				if line.rightSide == right:
+					matchList.append(line)
+			else:
+				if line.leftSide == left and line.rightSide == right:
+					matchList.append(line)
+
+		return matchList
 
 
 
