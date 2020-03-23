@@ -10,11 +10,11 @@ from shapely.geometry import Point, LineString, MultiLineString, Polygon
 from PlotStage import PlotStage
 from descartes import PolygonPatch
 
-inputPath = easygui.diropenbox("Choose the directory where the files are stored", default="/home/sabastien/Documents/Globus/Completed")
+# inputPath = easygui.diropenbox("Choose the directory where the files are stored", default="/home/sabastien/Documents/Globus/Completed")
 
-outputPath = easygui.diropenbox("Choose the directory to save the output", default = "/home/sabastien/Documents/Carleton/Domino Diagrams/G_FRAC Results")
-# inputPath = "TestData/"
-# outputPath = inputPath
+# outputPath = easygui.diropenbox("Choose the directory to save the output", default = "/home/sabastien/Documents/Carleton/Domino Diagrams/G_FRAC Results")
+inputPath = "TestData/"
+outputPath = inputPath
 pathNum = 0
 
 intersectList = []
@@ -23,7 +23,7 @@ while True:
 	thisStage = PlotStage(pathNum, inputPath)
 	if  len(thisStage.pltList) >0:
 		thisStage.plotIsos(outputPath)
-		#thisStage.plotPhase(outputPath)
+		thisStage.plotPhase(outputPath)
 		#intersectList.append(thisStage.getIntersection())
 
 		xAx = thisStage.pltList[0].xAx

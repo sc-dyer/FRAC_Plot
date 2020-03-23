@@ -128,9 +128,11 @@ class PlotStage():
 		#Plots the phase diagram for this stage
 
 		#Temporary test plotting lines
+		self.phasePlt.getPolys()
 		for line in self.phasePlt.domLines:
 			x, y = line.PTline.xy
 			self.phaseAx.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
+			line.extrapLine()
 		saveName = self.sampleName + "_Stage" + str(self.stage) + "_Phase.svg"
 		self.phaseFig.show()
 		self.phaseFig.savefig(os.path.join(saveDir, saveName))

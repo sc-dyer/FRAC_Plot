@@ -3,8 +3,10 @@
 #Can also connect lines that should be attached
 
 from DomLine import DomLine
+from DomPoly import DomPoly
 import re
-from shapely.geometry import Point, LineString
+from shapely.geometry import Point, LineString, Polygon
+from shapely.ops import polygonize
 import copy
 
 class PltParser:
@@ -239,6 +241,227 @@ class PltParser:
 					matchList.append(line)
 
 		return matchList
+
+
+	def getPolys(self):
+		#This will return any polygons that exist in the plt file
+		#Useful more for phase diagrams
+
+		#Join matching domLines
+		self.joinLines()
+
+		leftAx = LineString([(self.Tmin,self.Pmin),(self.Tmin,self.Pmax)])
+		rightAx = LineString([(self.Tmax,self.Pmin),(self.Tmax,self.Pmax)])
+		botAx = LineString([(self.Tmin,self.Pmin),(self.Tmax,self.Pmin)])
+		topAx = LineString([(self.Tmin,self.Pmax),(self.Tmax,self.Pmax)])
+
+		#Axes used for lines that dont intersect on one side
+		axes = [leftAx,rightAx,botAx,topAx]
+
+		for line in self.domLines:
+			#Find axis intersections
+			line.axesIntersect(axes)
+
+		self.polyList = []
+		thisField = self.domLines[0].leftSide
+	
+		commonLines = []
+		for i in range(len(self.domLines)):
+
+			#Group together all lines that have the same leftside
+			if self.domLines[i].leftSide == thisField:
+				commonLines.append(self.domLines[i])
+				# commonLines.append(self.domLines[i].extrapLine(bothEnds = True))
+				print(self.domLines[i].leftSide)
+				print(self.domLines[i].PTline)
+			
+			else:
+				#Once a different leftSide is reached, search through the whole array for matching rightSides and add them to the commonLines
+				for j in range(len(self.domLines)):
+					if self.domLines[j].rightSide == thisField:
+						commonLines.append(self.domLines[j])
+						# commonLines.append(self.domLines[j].extrapLine(bothEnds = True))
+						print(self.domLines[j].rightSide)
+						print(self.domLines[j].PTline)
+				
+
+				lineCount = 0
+				thisIndex = 0
+				lastIndex = 0
+				thisLine = commonLines[thisIndex]
+				print("Commonline: " + str(thisIndex))
+				print(thisLine.PTline)
+				polyPts = []
+
+				#This is for the edge case that thisLine only intersects the axes
+				if len(thisLine.axIntersec) > 1:
+					polyPts.extend(list(thisLine.PTline.coords))
+					lineCount += 1
+					lastPt = 1
+					while len(thisLine.axIntersec) >1 and lineCount < len(commonLines):
+						#Will continue this as long as thisLine continues to have two axes intersections
+						for j in range(len(commonLines)):
+							#Check all commonLines to see what line intersects with the same axis (Should only be one)
+							if j != thisIndex and j != lastIndex:
+								nextLine = commonLines[j]
+
+								for k in range(len(nextLine.intersectedAx)):
+									#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
+									if nextLine.intersectedAx[k] == thisLine.intersectedAx[lastPt]:
+										#Checks if the intersection is at the beginning or end of nextLine
+										#If its at the end then it reverses it
+										print(thisLine.axInterLoc[lastPt])
+										if (nextLine.axInterLoc[k] != 0 and thisLine.axInterLoc[lastPt] != 0) or (nextLine.axInterLoc[k] == 0 and thisLine.axInterLoc[lastPt] == 0):
+											nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
+										
+										#polyPts.append(nextLine.axIntersec[k].coords)
+										
+										lastIndex = -1
+										#This  is set as such because the last intersection was with an axis
+										thisLine = nextLine
+										
+										if len(thisLine.intersectedAx) > 1:
+											if k != 0:
+											#	polyPts.append(nextLine.axIntersec[0])
+												lastPt = 0
+											else:
+											#	polyPts.append(nextLine.axIntersec[1])
+												lastPt = 1
+											polyPts.extend(list(thisLine.PTline.coords))
+											lineCount += 1 
+											lastIndex = thisIndex #This is done so that the next time around it doesnt accidentally match with the same line if it can
+
+										thisIndex = j
+				#elif len(thisLine.axIntersec) >0:
+					#polyPts.extend(thisLine.axIntersec)
+
+				
+				print("Total lines = " + str(len(commonLines)))
+				while lineCount < len(commonLines):
+					#Continue until all lines in commonLines are acocunted for in the polygon
+					#At this point thisLine should NOT be in polyPts and is either connected to two other domlines or one domline and an axis
+					intersectNLine = None
+					print("Linecount = " +str(lineCount))
+					nextIndex = -1
+					#Loop to check if the extrapolated line on either side matches with one of the other lines
+					while intersectNLine == None and nextIndex < len(commonLines)-1:
+						nextIndex += 1
+						if nextIndex != thisIndex and nextIndex != lastIndex:
+							intersectNLine = thisLine.extrapIntersec(commonLines[nextIndex]) #intersect is thisLine PLUS the intersection coordinate
+
+					if intersectNLine != None:
+						#Here we add thisLine plus the intersection as intersectNLine
+						print("Found an intersection! Adding Line:")
+						print(intersectNLine)
+						polyPts.extend(list(intersectNLine.coords))
+						lineCount += 1
+						lastIndex = thisIndex
+						thisIndex = nextIndex
+						thisLine = commonLines[thisIndex]
+						
+						
+						
+					elif nextIndex >= len(commonLines) - 1:
+						#This should only trigger if the next endpoint is an intersection with an axis
+						#So thisLine is still not in polyPts and neither is its intersection with the axis
+						#But the intersection with the last line still is in this
+						print("No intersection found :(")
+						checkTwoIntersec = 2
+						lastPt = 0
+
+						print("Linecount = " + str(lineCount))
+						if len(thisLine.axIntersec)==1:
+							#Can just intersect thisLine with the lastLine and attach in reverse order to polyPts (minus the last pt)
+							# print("Commonline: " + str(thisIndex))
+							# print(thisLine.PTline)
+							# print("Commonline: " + str(lastIndex))
+							# print(commonLines[lastIndex].PTline)
+							intersectNLine = thisLine.extrapIntersec(commonLines[lastIndex])
+							print(intersectNLine)
+							intersectNLine.coords = list(intersectNLine.coords)[::-1]
+							intersectNLine.coords = list(intersectNLine.coords)[1::]
+							print("Adding line:")
+							print(intersectNLine)
+							polyPts.extend(list(intersectNLine.coords))
+							lineCount += 1
+							lastIndex = thisIndex
+						#Now we are faced with the tricky issue	of finding the other line that intersects with the same axis	
+						else:
+							print("Something went wrong making the polygon: trying to add a line without an intersection?")		
+						while checkTwoIntersec > 1 and lineCount < len(commonLines):
+							#Will continue this loop as long as there is another line that has two intersections with the same axis
+							#Will run at least once to find the nextLine that intersects the same axis
+							#polyPts.extend(list(thisLine.axIntersec))
+							numInterAx = 0
+							for j in range(len(commonLines)):
+								#Check how many other lines intersect this same axis
+								if j != thisIndex and j != lastIndex:
+									nextLine = commonLines[j]
+
+									for k in range(len(nextLine.intersectedAx)):
+										#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
+										if nextLine.intersectedAx[k] == thisLine.intersectedAx[lastPt]:
+											numInterAx += 1 
+							if numInterAx == 0:
+								#This triggers in the literal corner case
+							elif numInterax == 1:
+								#this is the normal case
+								for j in range(len(commonLines)):
+								#Checks all commonLines for the same Axis Intersection
+
+								#Problem: if at the corner, it could potentially loop forever
+								#Other problem: if there are more than one line intersecting the axis, it will attach both of them these issues might be addressed by checking the 
+								#number of lines that intersect the same axis in commonLines
+									if j != thisIndex and j != lastIndex:
+										nextLine = commonLines[j]
+
+										for k in range(len(nextLine.intersectedAx)):
+											#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
+											if nextLine.intersectedAx[k] == thisLine.intersectedAx[lastPt]:
+											#Checks if the intersection is at the beginning or end of nextLine
+											#If its at the end then it reverses it
+												if (nextLine.axInterLoc[k] != 0 and thisLine.axInterLoc[lastPt] != 0) or (nextLine.axInterLoc[k] == 0 and thisLine.axInterLoc[lastPt] == 0):
+													nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
+											
+												#polyPts.append(nextLine.axIntersec[k].coords)
+												matchAxes = True
+												lastIndex = -1
+												#This  is set as such because the last intersection was with an axis
+												thisLine = nextLine
+												checkTwoIntersec = len(thisLine.intersectedAx)
+												if len(thisLine.intersectedAx) > 1:
+													if k != 0:
+													#	polyPts.append(nextLine.axIntersec[0])
+														lastPt = 0
+													else:
+													#	polyPts.append(nextLine.axIntersec[1])
+														lastPt = 1
+													polyPts.extend(list(thisLine.PTline.coords))
+													lineCount += 1 
+													lastIndex = thisIndex #This is done so that the next time around it doesnt accidentally match with the same line if it can
+
+												thisIndex = j
+
+							
+
+							elif numInteerAx >1:
+								#This is the case when you have multiple polygons poking out different parts of the same axis
+
+
+				print("Polygon points in order:")
+				for pnt in polyPts:
+					print(pnt)
+			
+				self.polyList = DomPoly(polyPts,thisField)
+				commonLines =[self.domLines[i]] #Need to reset commonLines to prep next field
+				thisField = self.domLines[i].leftSide
+
+
+
+
+
+
+
 
 
 
