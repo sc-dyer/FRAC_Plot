@@ -11,6 +11,7 @@ from labellines import labelLine, labelLines
 import os
 import re
 
+
 GRT_CODES = ["alm","gr","py","spss"]
 COLOURS = ["red","orange","blue","green"]
 GRT_LABELS = ["Almandine", "Grossular","Pyrope","Spessartine"]
@@ -20,6 +21,7 @@ class PlotStage():
 
 	def __init__(self, stageNum, fileDir):
 
+		self.fileDir = fileDir
 		self.stage = stageNum
 		self.pltList = []
 		self.sampleName = None
@@ -36,7 +38,7 @@ class PlotStage():
 					#print(filename)
 					self.pltList.append(PltParser(os.path.join(fileDir,filename)))
 				elif pFileMatch.match(filename):
-					self.phasePlt = PltParser(os.path.join(fileDir,filename))
+					self.phasePlt = PltParser(os.path.join(fileDir,filename), isPhase = True)
 
 		#Set up the isopleth intersections based on the first Plt (alm)
 		if self.sampleName == None:
@@ -129,11 +131,28 @@ class PlotStage():
 
 		#Temporary test plotting lines
 		self.phasePlt.getPolys()
-		for line in self.phasePlt.domLines:
+		# for line in self.phasePlt.domLines:
+		# 	x, y = line.PTline.xy
+		# 	self.phaseAx.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
+		count = 0
+		csvName = self.sampleName + "_Stage" + str(self.stage)+"_PhaseList.csv"
+		
+		try:
+			csvFile = open(os.path.join(self.fileDir,csvName), 'w')
+		except:
+			print("Issue making file " + csvName)
+			exit()
+		csvFile.write("Field,Phases,Valid Polygon,Coordinates\n")
+		for poly in self.phasePlt.polyList:
+			# if count <13:
+			poly.plotPoly(self.phaseAx, count, csvFile)
+			count += 1
+
+		for line in self.phasePlt.failedPolys:
 			x, y = line.PTline.xy
 			self.phaseAx.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
-			line.extrapLine()
 		saveName = self.sampleName + "_Stage" + str(self.stage) + "_Phase.svg"
+		csvFile.close()
 		self.phaseFig.show()
 		self.phaseFig.savefig(os.path.join(saveDir, saveName))
 

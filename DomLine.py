@@ -1,14 +1,15 @@
 #Class for definining points in a domino line
 #Has temperature, pressure, and a name
 #name is not defined by default
-from shapely.geometry import Point, LineString, MultiLineString
-from shapely.ops import linemerge, snap
+from shapely.geometry import Point, LineString, MultiLineString, MultiPoint
+from shapely.ops import linemerge, snap, nearest_points
 import copy
 
 T_THRESH = 1.5
 P_THRESH = 50
 EXTRAP_RATIO = 50
-
+MAX_EXTRAP = 50
+EQ_THRESH= 0.0001
 class DomLine: 
 
 	def __init__(self, name = None):
@@ -66,7 +67,7 @@ class DomLine:
 
 		return False
 
-	def extrapLine(self, atEnd = True, bothEnds = False):
+	def extrapLine(self, atEnd = True, bothEnds = False, extrapRat = EXTRAP_RATIO):
 		#Returns a line that is extrapolated in one direction with the same direction as the first or last segment
 		#If atEnd = True it will extrapolate the last segment if not, it will extrapolate the first segment
 		#This is useful for checking the intersection of reaction lines in a phase diagram
@@ -89,8 +90,8 @@ class DomLine:
 					if p2 == self.axIntersec[0].coords:
 						continue
 
-				nextPtX = (p2[0]-p1[0])*EXTRAP_RATIO + p2[0]
-				nextPtY = (p2[1]-p1[1])*EXTRAP_RATIO + p2[1]
+				nextPtX = (p2[0]-p1[0])*extrapRat + p2[0]
+				nextPtY = (p2[1]-p1[1])*extrapRat + p2[1]
 
 				nextPt = Point(nextPtX, nextPtY)
 
@@ -127,43 +128,150 @@ class DomLine:
 				y2 = self.PTline.coords[0][1]
 				#x3, y3 = self.PTline.xy[len(self.PTline.xy)-1]
 				
-				eq_thresh = 0.0001
-				if abs(x1-x2) <= eq_thresh and abs(y1-y2) <= eq_thresh:
+				
+				#Checking which end is the intersection
+				if abs(x1-x2) <= EQ_THRESH and abs(y1-y2) <= EQ_THRESH:
 					self.axInterLoc.append(0)
 				else:
 					self.axInterLoc.append(len(self.PTline.coords)-1)
+			else:
+				#If there is an error in the data and the line does not quite intersect...
+				closestPoints = nearest_points(line,self.PTline)
+				x1 = closestPoints[0].coords[0][0]
+				y1 = closestPoints[0].coords[0][1]
+
+				x2 = closestPoints[1].coords[0][0]
+				y2 = closestPoints[1].coords[0][1]
+
+				x3= self.PTline.coords[0][0]
+				y3 = self.PTline.coords[0][1]
+				
+				if abs(x1-x2) <= T_THRESH and abs(y1-y2) <= P_THRESH:
+					self.axIntersec.append(closestPoints[0])
+					self.intersectedAx.append(line)
+					print("Closest Points: ")
+					print(closestPoints[0].coords[0])
+					print(closestPoints[1].coords[0])
+					if abs(x2-x3) <= EQ_THRESH and abs(y2-y3) <= EQ_THRESH:
+						self.axInterLoc.append(0)
+					else:
+						self.axInterLoc.append(len(self.PTline.coords)-1)
 
 
 
-
-
-	def extrapIntersec(self, otherLine):
+	def extrapIntersec(self, otherLine, tMin = 0, tMax = 10000, pMin = 0, pMax = 3000000, extrapolRat = EXTRAP_RATIO):
 	#This method will check if the extrapolation of both this line and otherLine intersect
 	#Will actually return itself PLUS the intersection coordinate added to the correct side of the line
 
 		tryEnds = [True, True]
 		lineInter = list(copy.deepcopy(self.PTline.coords))
-		for i in range(len(tryEnds)):
-			thisExtrap = self.extrapLine(tryEnds[0])
-			
+		chkDiverge= False
+		parallelCount = 1
+		# if extrapolRat == MAX_EXTRAP:
+		# 	#This is a case to check for lines that dont intersect because the final two points diverge
+		# 	# extrapolRat = EXTRAP_RATIO
+		# 	chkDiverge = True
+		# 	parallelCount = 2
 
-			for j in range(len(tryEnds)):
-				otherExtrap = otherLine.extrapLine(tryEnds[1])
-				# print("ThisLine extrapolation:")
-				# print(thisExtrap)
-				# print("OtherLine extrapolation:")
-				# print(otherExtrap)
-				intersect = thisExtrap.intersection(LineString(otherExtrap))
+		for i in range(len(tryEnds)):
+			thisExtrap = self.extrapLine(tryEnds[0],extrapRat = extrapolRat)
+			for k in range(parallelCount):
+				if chkDiverge:
+					#This is a case to check for lines that dont intersect because the final two points diverge
+					if k == 0:
+						thisExtrap = thisExtrap.parallel_offset(10, 'left', join_style = 2)
+					else:
+						thisExtrap = thisExtrap.parallel_offset(10, 'right', join_style = 2)
+				intersect = thisExtrap.intersection(LineString(otherLine.PTline))
 
 				if isinstance(intersect, Point):
-					if tryEnds[0]:
-						lineInter.extend(intersect.coords)
-					else:
+					#Triggers if the thisLine extrapolation intersects otherLine without extrapolation
+					if not tryEnds[0]:
 						lineInter = lineInter[::-1]
-						lineInter.extend(intersect.coords)
 					return LineString(lineInter)
-				else:
-					tryEnds[1] = not tryEnds[1]
+
+				for j in range(len(tryEnds)):
+					otherExtrap = otherLine.extrapLine(tryEnds[1],extrapRat = extrapolRat)
+					if chkDiverge:
+						#This is a case to check for lines that dont intersect because the final two points diverge
+						if k == 1:
+							otherExtrap = otherExtrap.parallel_offset(10, 'left', join_style = 2)
+						else:
+							otherExtrap = otherExtrap.parallel_offset(10, 'right', join_style = 2)
+					print("\n")
+					print("ThisLine extrapolation:")
+					print(thisExtrap)
+					print("OtherLine extrapolation:")
+					print(otherExtrap)
+					intersect = self.PTline.intersection(LineString(otherExtrap))
+
+					if isinstance(intersect, Point):
+						#Triggers if the otherline extrapolation intersects thisLine without extrapolation
+
+						firstPoint = Point(self.PTline.coords[0])
+						lastPoint = Point(self.PTline.coords[len(self.PTline.coords)-1])
+
+						distanceFirst = intersect.distance(firstPoint)
+						distanceLast = intersect.distance(lastPoint)
+						# print("Intersection of unextrapolated line:")
+						# print(distanceFirst)
+						# print(distanceLast)
+						# print("ThisLine extrapolation:")
+						# print(thisExtrap)
+						# print("OtherLine extrapolation:")
+						# print(otherExtrap)
+						# print("yay an intersection!")
+						# print(intersect)
+						# print(tryEnds[0])
+						# print(tryEnds[1])
+						if distanceFirst < distanceLast:
+							lineInter = lineInter[::-1]
+						return LineString(lineInter)
+
+
+					intersect = thisExtrap.intersection(LineString(otherExtrap))
+
+					if isinstance(intersect, Point):
+						t = intersect.coords[0][0]
+						p = intersect.coords[0][1]
+						# print("ThisLine extrapolation:")
+						# print(thisExtrap)
+						# print("OtherLine extrapolation:")
+						# print(otherExtrap)
+						# print("yay an intersection!")
+						# print(intersect)
+						# print(tryEnds[0])
+						# print(tryEnds[1])
+
+						if t< tMin or t >tMax or p <pMin or p>pMax:
+							return None
+						if chkDiverge:
+							if not tryEnds[0]:
+								lineInter = lineInter[::-1]
+							return LineString(lineInter)
+						if tryEnds[0]:
+							lineInter.extend(intersect.coords)
+						else:
+							lineInter = lineInter[::-1]
+							lineInter.extend(intersect.coords)
+
+						return LineString(lineInter)
+					elif isinstance(intersect, MultiPoint) or isinstance(intersect, MultiLineString):
+					#If the extrapolations are roughly parallel, that means you dont need an extra intersection point
+					#Just add the line as normal
+						# print("Multiple intersections ")
+						# print("yay an intersection!")
+						# print(intersect)
+						if not tryEnds[0]:
+							lineInter = lineInter[::-1]
+						return LineString(lineInter)
+							
+
+					else:
+						# print("No intersect found")
+						# print(intersect)
+						tryEnds[1] = not tryEnds[1]
 
 			tryEnds[0] = not tryEnds[0]
+
 		return None
