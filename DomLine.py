@@ -6,7 +6,7 @@ from shapely.ops import linemerge, snap, nearest_points
 import copy
 
 T_THRESH = 1.5
-P_THRESH = 10
+P_THRESH = 30
 EXTRAP_RATIO = 50
 MAX_EXTRAP = 50
 EQ_THRESH= 0.0001
