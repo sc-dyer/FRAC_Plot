@@ -31,7 +31,7 @@ class DomPoly:
 		isValid = "No"
 		pltIn.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
 		if self.field.is_valid:
-			pltIn.text(textX, textY, str(index), fontsize = 10, color = "blue")
+			pltIn.text(textX, textY, str(index), fontsize = 10, color = "blue",horizontalalignment='center', verticalalignment='center')
 			isValid = "Yes"
 		delimit = ","
 		fieldString = str(self.field).replace("POLYGON ((","")

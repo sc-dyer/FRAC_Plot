@@ -138,7 +138,7 @@ class PlotStage():
 		csvName = self.sampleName + "_Stage" + str(self.stage)+"_PhaseList.csv"
 		
 		try:
-			csvFile = open(os.path.join(self.fileDir,csvName), 'w')
+			csvFile = open(os.path.join(saveDir,csvName), 'w')
 		except:
 			print("Issue making file " + csvName)
 			exit()
