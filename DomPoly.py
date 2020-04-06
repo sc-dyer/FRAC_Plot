@@ -1,5 +1,5 @@
 #Class for handling a Domino Polygon
-from shapely.geometry import Point, LineString, MultiLineString, Polygon
+from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.ops import linemerge, snap
 import matplotlib.pyplot as plt
 import copy
@@ -13,7 +13,16 @@ class DomPoly:
 		self.phases = name
 		self.renamePhases()
 		if not self.field.is_valid:
+			newField = self.field.buffer(0)
+			# print(newField)
+			# if newField.is_valid:
+			# 	self.field = newField
+			# 	print(self.phases + " is a valid Poly")
+			# else:
 			print(self.phases + " not a valid Poly")
+		else:
+			print(self.phases + " is a valid Poly")
+		print("\n")
 
 
 	def plotPoly(self, pltIn, index, csvWriter):
@@ -22,21 +31,30 @@ class DomPoly:
 		print("Plotting: " + self.phases)
 		print(self.field)
 		print(self.field.is_valid)
-		x, y = self.field.exterior.xy
-		
-		textX, textY = self.field.centroid.xy
-		
-		textX = float(textX[0])
-		textY = float(textY[0])
-		isValid = "No"
-		pltIn.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
-		if self.field.is_valid:
-			pltIn.text(textX, textY, str(index), fontsize = 10, color = "blue",horizontalalignment='center', verticalalignment='center')
-			isValid = "Yes"
-		delimit = ","
-		fieldString = str(self.field).replace("POLYGON ((","")
-		fieldString = fieldString.replace("))","")
-		csvWriter.write(str(index) + delimit  + self.phases + delimit +  isValid + delimit + fieldString + "\n")
+		print(self.field.is_empty)
+		if not self.field.is_empty:
+			if isinstance(self.field, MultiPolygon):
+				fields = list(self.field)
+			elif isinstance(self.field, Polygon):
+				fields = [self.field]
+			for poly in fields:
+				x, y = poly.exterior.xy
+				
+				textX, textY = poly.representative_point().xy
+				
+				textX = float(textX[0])
+				textY = float(textY[0])
+				isValid = "No"
+				pltIn.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
+				pltIn.text(textX, textY, str(index), fontsize = 10, color = "blue",horizontalalignment='center', verticalalignment='center')
+				if poly.is_valid:
+					
+					isValid = "Yes"
+
+				delimit = ","
+				fieldString = str(self.field).replace("POLYGON ((","")
+				fieldString = fieldString.replace("))","")
+			csvWriter.write(str(index) + delimit  + self.phases + delimit +  isValid + delimit + fieldString + "\n")
 	def renamePhases(self):
 		#This is a long method to rename names of phases in the string
 
