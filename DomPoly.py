@@ -4,7 +4,8 @@ from shapely.ops import linemerge, snap
 import matplotlib.pyplot as plt
 import copy
 
-
+PHASES = ["Fluid","Fsp","Grt","Ilm","Bt","Chl","WM","Qz","Gr","And","Ky","Sil","St","Crd","Czo","Rt","Melt"]
+FILL_OPTIONS = ["barrovian"]
 class DomPoly:
 
 	def __init__(self, polyCoords,name):
@@ -25,9 +26,10 @@ class DomPoly:
 		print("\n")
 
 
-	def plotPoly(self, pltIn, index, csvWriter):
-
+	def plotPoly(self, pltIn, index, csvWriter, areaMin = 0, fillOp = None):
+		
 		index = index+1
+		delimit = ","
 		print("Plotting: " + self.phases)
 		print(self.field)
 		print(self.field.is_valid)
@@ -44,17 +46,59 @@ class DomPoly:
 				
 				textX = float(textX[0])
 				textY = float(textY[0])
+				
+				textColour = "blue"
+
+				if fillOp == FILL_OPTIONS[0]: #Fill the fields according to the barrovian zones
+					fillColour = "white"
+					if "Melt" in self.phases:
+						fillColour = "gold"
+						textColour = "black"
+					if "Crd" in self.phases:
+						fillColour = "magenta"
+						textColour = "black"
+					elif "Sil" in self.phases:
+						fillColour = "blueviolet"
+						textColour = "white"
+					elif "Ky" in self.phases:
+						fillColour = "cyan"
+						textColour = "black"
+					elif "St" in self.phases:
+						fillColour = "yellow"
+						textColour = "black"
+					elif "Grt" in self.phases:
+						fillColour = "red"
+						textColour = "black"
+					elif "Bt" in self.phases:
+						fillColour = "sandybrown"
+						textColour = "black"
+					elif "Chl" in self.phases:
+						fillColour = "green"
+						textColour = "white"
+					pltIn.fill(x,y,color=fillColour)
+
 				isValid = "No"
-				pltIn.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
-				pltIn.text(textX, textY, str(index), fontsize = 10, color = "blue",horizontalalignment='center', verticalalignment='center')
-				if poly.is_valid:
-					
+				if poly.is_valid:	
 					isValid = "Yes"
 
-				delimit = ","
-				fieldString = str(self.field).replace("POLYGON ((","")
-				fieldString = fieldString.replace("))","")
-			csvWriter.write(str(index) + delimit  + self.phases + delimit +  isValid + delimit + fieldString + "\n")
+				pltIn.plot(x, y, color = "black", marker = None, linestyle = "-", markersize = 7, linewidth = 2)
+				
+				if poly.area >= areaMin:
+					pltIn.text(textX, textY, str(index), fontsize = 10, color = textColour,horizontalalignment='center', verticalalignment='center')
+
+					
+					fieldString = str(self.field).replace("POLYGON ((","")
+					fieldString = fieldString.replace("))","")
+					# csvWriter.write(str(index) + delimit  + self.phases + delimit +  isValid + delimit + fieldString + "\n")
+					csvWriter.write(str(index) + delimit + self.phases + delimit)
+					for phase in PHASES:
+						if phase in self.phases:
+							csvWriter.write(phase + delimit)
+						else:
+							csvWriter.write(delimit)
+					csvWriter.write(isValid + delimit + fieldString + "\n")
+
+
 	def renamePhases(self):
 		#This is a long method to rename names of phases in the string
 

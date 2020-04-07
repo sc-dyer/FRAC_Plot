@@ -3,6 +3,7 @@
 
 from PltParser import PltParser
 from DomLine import DomLine
+from DomPoly import DomPoly, PHASES
 import matplotlib.pyplot as plt
 from shapely.geometry import Point, LineString, MultiLineString, Polygon
 from shapely.ops import polygonize, polygonize_full
@@ -142,10 +143,13 @@ class PlotStage():
 		except:
 			print("Issue making file " + csvName)
 			exit()
-		csvFile.write("Field,Phases,Valid Polygon,Coordinates\n")
+		csvFile.write("Field,PhaseString,Phases,")
+		for phase in PHASES:
+			csvFile.write(",")
+		csvFile.write("Valid Polygon,Coordinates\n")
 		for poly in self.phasePlt.polyList:
 			# if count <13:
-			poly.plotPoly(self.phaseAx, count, csvFile)
+			poly.plotPoly(self.phaseAx, count, csvFile,areaMin = 2000, fillOp = "barrovian")
 			count += 1
 
 		for line in self.phasePlt.failedPolys:
