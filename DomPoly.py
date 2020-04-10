@@ -4,7 +4,7 @@ from shapely.ops import linemerge, snap
 import matplotlib.pyplot as plt
 import copy
 
-PHASES = ["Fluid","Fsp","Grt","Ilm","Bt","Chl","WM","Qz","Gr","And","Ky","Sil","St","Crd","Czo","Rt","Melt"]
+PHASES = ["Fluid","Fsp","Grt","Ilm","Bt","Chl","WM","Qz","Gr","And","Ky","Sil","St","Crd","Czo","Mrg","Cld","Rt","Melt"]
 FILL_OPTIONS = ["barrovian"]
 class DomPoly:
 
@@ -54,7 +54,7 @@ class DomPoly:
 					if "Melt" in self.phases:
 						fillColour = "gold"
 						textColour = "black"
-					if "Crd" in self.phases:
+					elif "Crd" in self.phases:
 						fillColour = "magenta"
 						textColour = "black"
 					elif "Sil" in self.phases:
@@ -119,4 +119,6 @@ class DomPoly:
 		tPhases = tPhases.replace("cz","Czo")
 		tPhases = tPhases.replace("LIQtc","Melt")
 		tPhases = tPhases.replace("ru","Rt")
+		tPhases = tPhases.replace("ma","Mrg")
+		tPhases = tPhases.replace("CHTD","Cld")
 		self.phases = tPhases
