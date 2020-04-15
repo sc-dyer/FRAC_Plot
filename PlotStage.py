@@ -143,7 +143,7 @@ class PlotStage():
 		except:
 			print("Issue making file " + csvName)
 			exit()
-		csvFile.write("Field,PhaseString,Phases,")
+		csvFile.write("Field,PhaseString,Phases")
 		for phase in PHASES:
 			csvFile.write(",")
 		csvFile.write("Valid Polygon,Coordinates\n")

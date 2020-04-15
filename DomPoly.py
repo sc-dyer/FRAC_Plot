@@ -92,7 +92,9 @@ class DomPoly:
 					# csvWriter.write(str(index) + delimit  + self.phases + delimit +  isValid + delimit + fieldString + "\n")
 					csvWriter.write(str(index) + delimit + self.phases + delimit)
 					for phase in PHASES:
-						if phase in self.phases:
+						if "(2)" + phase in self.phases:
+							csvWriter.write("(2)" + phase + delimit)
+						elif phase in self.phases:
 							csvWriter.write(phase + delimit)
 						else:
 							csvWriter.write(delimit)
