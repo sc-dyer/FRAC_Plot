@@ -10,6 +10,8 @@ from shapely.ops import polygonize
 import copy
 import math
 import sys
+
+
 GRPH_CODE = "gph" #Used to remove nonexistant lines that dont conain graphite in a C saturated rock
 
 DIST_THRESH = 50 #This is the calue used as a threshold for linking lines. If the distance between endpoints exceeds this, then it will return multiple polys
@@ -62,7 +64,7 @@ class PltParser:
 
 		self.domLines = []
 		while(nextLineNum < len(textLines)):
-
+			
 			numPoints = int(textLines[nextLineNum].split()[1]) #Extracting NumPoints
 			if numPoints > 1:
 				nextLineNum +=1
@@ -120,7 +122,7 @@ class PltParser:
 					self.domLines.append(thisDomLine)
 			else:
 				nextLineNum += 4 
-			
+	
 		self.joinLines()
 
 	def sortLeft(self,low, high):
@@ -470,253 +472,255 @@ class PltParser:
 	def sortLines(self, lineGroup):
 		#This method will sort lines based on closeness and shared axis intersections
 		#Will return a sorted array of lines
+		
 		leftAx = LineString([(self.Tmin,self.Pmin),(self.Tmin,self.Pmax)])
 		rightAx = LineString([(self.Tmax,self.Pmin),(self.Tmax,self.Pmax)])
 		botAx = LineString([(self.Tmin,self.Pmin),(self.Tmax,self.Pmin)])
 		topAx = LineString([(self.Tmin,self.Pmax),(self.Tmax,self.Pmax)])
 		axes = [leftAx,rightAx,botAx,topAx]
 		multiSortedLines = []
-		lineGroup = copy.deepcopy(lineGroup)
-		sortedLines = [lineGroup[0]]
-		numLines = len(lineGroup)
-		lineGroup.pop(0)
-		for i in range(numLines-1):
-			thisLine = sortedLines[len(sortedLines)-1]
-			linkPoint = Point(thisLine.PTline.coords[len(thisLine.PTline.coords)-1])
-			#Need to check the end point first to see if it intersects with an axis
-			atAxis = False
-			# print(thisLine.PTline)
-			# print(sortedLines[len(sortedLines)-1].PTline)
+		if len(lineGroup) > 0:
+			lineGroup = copy.deepcopy(lineGroup)
+			sortedLines = [lineGroup[0]]
+			numLines = len(lineGroup)
+			lineGroup.pop(0)
+			for i in range(numLines-1):
+				thisLine = sortedLines[len(sortedLines)-1]
+				linkPoint = Point(thisLine.PTline.coords[len(thisLine.PTline.coords)-1])
+				#Need to check the end point first to see if it intersects with an axis
+				atAxis = False
+				# print(thisLine.PTline)
+				# print(sortedLines[len(sortedLines)-1].PTline)
 
-			for j in range(len(thisLine.intersectedAx)):
-				if thisLine.axInterLoc[j] != 0:
-					thisAx = thisLine.intersectedAx[j]
-					thisIntersec = thisLine.axIntersec[j]
-					atAxis = True
-				print(thisLine.axInterLoc[j])
-			
-			# print("At axis = " + str(atAxis))
-			if atAxis:
-				#Iterate to find the other intersect, can possibly copy the stuff from above
-				#Need to add the extra corner point to the end of thisLine if the corner case
-				#Will continue this loop as long as there is another line that has two intersections with the same axis
-				#Will run at least once to find the nextLine that intersects the same axis
-				#polyPts.extend(list(thisLine.axIntersec))
-				numInterAx = 0
-				for j in range(len(lineGroup)):
-					#Check how many other lines intersect this same axis
-					
-					nextLine = lineGroup[j]
-
-					for k in range(len(nextLine.intersectedAx)):
-						#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
-						if nextLine.intersectedAx[k] == thisAx:
-							numInterAx += 1
-
-
-				if numInterAx == 0:
-					#This triggers in the literal corner case
-					
+				for j in range(len(thisLine.intersectedAx)):
+					if thisLine.axInterLoc[j] != 0:
+						thisAx = thisLine.intersectedAx[j]
+						thisIntersec = thisLine.axIntersec[j]
+						atAxis = True
+					print(thisLine.axInterLoc[j])
+				
+				# print("At axis = " + str(atAxis))
+				if atAxis:
+					#Iterate to find the other intersect, can possibly copy the stuff from above
+					#Need to add the extra corner point to the end of thisLine if the corner case
+					#Will continue this loop as long as there is another line that has two intersections with the same axis
+					#Will run at least once to find the nextLine that intersects the same axis
+					#polyPts.extend(list(thisLine.axIntersec))
+					numInterAx = 0
 					for j in range(len(lineGroup)):
-						if j < len(lineGroup):
-							nextLine = lineGroup[j]
-							#if j != thisIndex:
-							for k in range(len(nextLine.intersectedAx)):
-								nextAx = nextLine.intersectedAx[k]
-
-								axIntersec = thisAx.intersection(nextAx)
-
-								if isinstance(axIntersec, Point):
-									if (nextLine.axInterLoc[k] != 0):
-										
-										nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
-										nextLine.axesIntersect(axes)
-									#polyPts.append(nextLine.axIntersec[k].coords)
-									axCoords = list(axIntersec.coords)
-									nextLineCoords = list(nextLine.PTline.coords)
-									print(axCoords)
-									print(nextLineCoords)
-									nextLineCoords.insert(0,axCoords[0])
-									print(nextLineCoords)
-									nextLine.PTline.coords = nextLineCoords
-									
-									sortedLines.append(nextLine)
-
-									lineGroup.pop(j)
-
-								#Will this throw an error if >1 axis intersection on other axes? 
-								#Not sure I have seen that before
-
-
-
-				elif numInterAx == 1:
-					#this is the normal case
-					for j in range(len(lineGroup)):
-					#Checks all commonLines for the same Axis Intersection
-						if j < len(lineGroup):
-							nextLine = lineGroup[j]
-
-							for k in range(len(nextLine.intersectedAx)):
-								
-								#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
-								if nextLine.intersectedAx[k] == thisAx:
-								#Checks if the intersection is at the beginning or end of nextLine
-								#If its at the end then it reverses it
-									print("This line:")
-									print(thisLine.PTline)
-									#print("Axis intersect loc: " + str(thisLine.axInterLoc[lastPt]))
-									print("Next line: ")
-									print(nextLine.PTline)
-									
-									print("Axis intersect loc: " + str(nextLine.axInterLoc[k]))
-									
-									if (nextLine.axInterLoc[k] != 0):
-										nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
-										nextLine.axesIntersect(axes)
-									sortedLines.append(nextLine)
-
-									lineGroup.pop(j)
-
-					
-
-				elif numInterAx >1:
-					#This is the case when you have multiple polygons poking out different parts of the same axis
-					#Im not entirely sure what to do here. I suppose the smartest thing would be to group these as seperate polygons
-					#Perhaps what is easier is making an invalid polygon and sort it out later.
-					#Question is how to establish the order of operations? 
-					#Okay, in this case we will connext it to the line of the next highest pressure that is not already in the array
-					
-
-					if thisAx == leftAx or thisAx == rightAx:
-						xyIndex = 1
-					elif thisAx == botAx or thisAx == topAx:
-						xyIndex = 0
-
-					thisInterVal = thisIntersec.coords[0][xyIndex]
-					bestLine = None #this is the best next choice for line
-					bestInterVal = -1
-					bestIndex = -1
-					bestPt = -1
-					for j in range(len(lineGroup)):
+						#Check how many other lines intersect this same axis
 						
 						nextLine = lineGroup[j]
-						
+
 						for k in range(len(nextLine.intersectedAx)):
-
+							#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
 							if nextLine.intersectedAx[k] == thisAx:
-								nextInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
+								numInterAx += 1
 
-								if bestLine == None and nextInterVal > thisInterVal:
-									bestLine = nextLine
-									bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
-									bestIndex = j
-									bestPt = k
-								elif nextInterVal > thisInterVal and nextInterVal < bestInterVal:
-									bestLine = nextLine
-									bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
-									bestIndex = j
-									bestPt = k
-					if bestLine == None:
-						#Should trigger if there is no nexthighest so will take the lowest value
+
+					if numInterAx == 0:
+						#This triggers in the literal corner case
+						
 						for j in range(len(lineGroup)):
+							if j < len(lineGroup):
+								nextLine = lineGroup[j]
+								#if j != thisIndex:
+								for k in range(len(nextLine.intersectedAx)):
+									nextAx = nextLine.intersectedAx[k]
+
+									axIntersec = thisAx.intersection(nextAx)
+
+									if isinstance(axIntersec, Point):
+										if (nextLine.axInterLoc[k] != 0):
+											
+											nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
+											nextLine.axesIntersect(axes)
+										#polyPts.append(nextLine.axIntersec[k].coords)
+										axCoords = list(axIntersec.coords)
+										nextLineCoords = list(nextLine.PTline.coords)
+										print(axCoords)
+										print(nextLineCoords)
+										nextLineCoords.insert(0,axCoords[0])
+										print(nextLineCoords)
+										nextLine.PTline.coords = nextLineCoords
+										
+										sortedLines.append(nextLine)
+
+										lineGroup.pop(j)
+
+									#Will this throw an error if >1 axis intersection on other axes? 
+									#Not sure I have seen that before
+
+
+
+					elif numInterAx == 1:
+						#this is the normal case
+						for j in range(len(lineGroup)):
+						#Checks all commonLines for the same Axis Intersection
+							if j < len(lineGroup):
+								nextLine = lineGroup[j]
+
+								for k in range(len(nextLine.intersectedAx)):
+									
+									#Check both intersectedAxes and see if they are the same as the axes of the last point added to PolyPts
+									if nextLine.intersectedAx[k] == thisAx:
+									#Checks if the intersection is at the beginning or end of nextLine
+									#If its at the end then it reverses it
+										print("This line:")
+										print(thisLine.PTline)
+										#print("Axis intersect loc: " + str(thisLine.axInterLoc[lastPt]))
+										print("Next line: ")
+										print(nextLine.PTline)
+										
+										print("Axis intersect loc: " + str(nextLine.axInterLoc[k]))
+										
+										if (nextLine.axInterLoc[k] != 0):
+											nextLine.PTline.coords = list(nextLine.PTline.coords)[::-1]
+											nextLine.axesIntersect(axes)
+										sortedLines.append(nextLine)
+
+										lineGroup.pop(j)
+
+						
+
+					elif numInterAx >1:
+						#This is the case when you have multiple polygons poking out different parts of the same axis
+						#Im not entirely sure what to do here. I suppose the smartest thing would be to group these as seperate polygons
+						#Perhaps what is easier is making an invalid polygon and sort it out later.
+						#Question is how to establish the order of operations? 
+						#Okay, in this case we will connext it to the line of the next highest pressure that is not already in the array
+						
+
+						if thisAx == leftAx or thisAx == rightAx:
+							xyIndex = 1
+						elif thisAx == botAx or thisAx == topAx:
+							xyIndex = 0
+
+						thisInterVal = thisIntersec.coords[0][xyIndex]
+						bestLine = None #this is the best next choice for line
+						bestInterVal = -1
+						bestIndex = -1
+						bestPt = -1
+						for j in range(len(lineGroup)):
+							
+							nextLine = lineGroup[j]
 							
 							for k in range(len(nextLine.intersectedAx)):
 
 								if nextLine.intersectedAx[k] == thisAx:
 									nextInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
 
-									if nextInterVal < thisInterVal:
+									if bestLine == None and nextInterVal > thisInterVal:
 										bestLine = nextLine
 										bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
 										bestIndex = j
 										bestPt = k
-									elif nextInterVal < thisInterVal and nextInterVal < bestInterVal:
+									elif nextInterVal > thisInterVal and nextInterVal < bestInterVal:
 										bestLine = nextLine
 										bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
 										bestIndex = j
 										bestPt = k
+						if bestLine == None:
+							#Should trigger if there is no nexthighest so will take the lowest value
+							for j in range(len(lineGroup)):
+								
+								for k in range(len(nextLine.intersectedAx)):
 
-					if bestLine != None: 
-						if bestLine.axInterLoc[bestPt] != 0:
-							bestLine.PTline.coords = list(bestLine.PTline.coords)[::-1]
-							bestLine.axesIntersect(axes)
-					
+									if nextLine.intersectedAx[k] == thisAx:
+										nextInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
+
+										if nextInterVal < thisInterVal:
+											bestLine = nextLine
+											bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
+											bestIndex = j
+											bestPt = k
+										elif nextInterVal < thisInterVal and nextInterVal < bestInterVal:
+											bestLine = nextLine
+											bestInterVal = nextLine.axIntersec[k].coords[0][xyIndex]
+											bestIndex = j
+											bestPt = k
+
+						if bestLine != None: 
+							if bestLine.axInterLoc[bestPt] != 0:
+								bestLine.PTline.coords = list(bestLine.PTline.coords)[::-1]
+								bestLine.axesIntersect(axes)
 						
-						sortedLines.append(bestLine)
+							
+							sortedLines.append(bestLine)
 
-						lineGroup.pop(bestIndex)
-				
+							lineGroup.pop(bestIndex)
+					
 
-			else:
-				#The normal case where you dont have an axis intersection
-				atEnd = False
-				minDistance = sys.float_info.max
-				nextIndex = 0
+				else:
+					#The normal case where you dont have an axis intersection
+					atEnd = False
+					minDistance = sys.float_info.max
+					nextIndex = 0
 
-				for j in range(len(lineGroup)):
-					nextLine = lineGroup[j]
-					firstPoint = Point(nextLine.PTline.coords[0])
-					lastPoint = Point(nextLine.PTline.coords[len(nextLine.PTline.coords)-1])
+					for j in range(len(lineGroup)):
+						nextLine = lineGroup[j]
+						firstPoint = Point(nextLine.PTline.coords[0])
+						lastPoint = Point(nextLine.PTline.coords[len(nextLine.PTline.coords)-1])
 
-					distFirst = firstPoint.distance(linkPoint)
-					distLast = lastPoint.distance(linkPoint)
+						distFirst = firstPoint.distance(linkPoint)
+						distLast = lastPoint.distance(linkPoint)
 
-					#iterate the array and find the line with an the end that is closest to the last point in the last array
-					if distFirst < minDistance or distLast < minDistance:
-						if distLast < distFirst:
-							atEnd = True
-							minDistance = distLast
-						else:
-							atEnd = False
-							minDistance = distFirst
-						nextIndex = j
+						#iterate the array and find the line with an the end that is closest to the last point in the last array
+						if distFirst < minDistance or distLast < minDistance:
+							if distLast < distFirst:
+								atEnd = True
+								minDistance = distLast
+							else:
+								atEnd = False
+								minDistance = distFirst
+							nextIndex = j
 
-				if len(lineGroup) > 0:
-					bestMatch = lineGroup[nextIndex]
-					if atEnd:
-						bestMatch.PTline.coords = list(bestMatch.PTline.coords)[::-1]
-						bestMatch.axesIntersect(axes)
-					if minDistance > DIST_THRESH:
-						multiSortedLines.append(sortedLines)
-						sortedLines = []
-					lineGroup.pop(nextIndex)
-					sortedLines.append(bestMatch)
+					if len(lineGroup) > 0:
+						bestMatch = lineGroup[nextIndex]
+						if atEnd:
+							bestMatch.PTline.coords = list(bestMatch.PTline.coords)[::-1]
+							bestMatch.axesIntersect(axes)
+						if minDistance > DIST_THRESH:
+							multiSortedLines.append(sortedLines)
+							sortedLines = []
+						lineGroup.pop(nextIndex)
+						sortedLines.append(bestMatch)
 
-		multiSortedLines.append(sortedLines)
-		for group in multiSortedLines:
-			firstLine = group[0]
-			lastLine = group[len(group)-1]
-			print("Checking for corner")
+			multiSortedLines.append(sortedLines)
+			for group in multiSortedLines:
+				firstLine = group[0]
+				lastLine = group[len(group)-1]
+				print("Checking for corner")
 
-			#For when there is the corner case but the axis intersections are at the beginning and end of the list
-			for j in range(len(lastLine.intersectedAx)):
-				if lastLine.axInterLoc[j] != 0:
-					lastAx = lastLine.intersectedAx[j]
-					lastIntersec = lastLine.axIntersec[j]
-					print(lastIntersec)
-					for k in range(len(firstLine.intersectedAx)):
-						firstAx = firstLine.intersectedAx[k]
+				#For when there is the corner case but the axis intersections are at the beginning and end of the list
+				for j in range(len(lastLine.intersectedAx)):
+					if lastLine.axInterLoc[j] != 0:
+						lastAx = lastLine.intersectedAx[j]
+						lastIntersec = lastLine.axIntersec[j]
+						print(lastIntersec)
+						for k in range(len(firstLine.intersectedAx)):
+							firstAx = firstLine.intersectedAx[k]
 
-						axIntersec = lastAx.intersection(firstAx)
-						print(axIntersec)
-						if isinstance(axIntersec, Point):
+							axIntersec = lastAx.intersection(firstAx)
+							print(axIntersec)
+							if isinstance(axIntersec, Point):
 
-						#Should only trigger if they intersect at a point
-							if (firstLine.axInterLoc[k] == 0):
-								
-								
-								axCoords = list(axIntersec.coords)
-								lastLineCoords = list(lastLine.PTline.coords)
-								print(axCoords)
+							#Should only trigger if they intersect at a point
+								if (firstLine.axInterLoc[k] == 0):
 									
-								lastLineCoords.append(axCoords[0])
-					
-								lastLine.PTline.coords = lastLineCoords
-					
+									
+									axCoords = list(axIntersec.coords)
+									lastLineCoords = list(lastLine.PTline.coords)
+									print(axCoords)
+										
+									lastLineCoords.append(axCoords[0])
+						
+									lastLine.PTline.coords = lastLineCoords
+						
 
 
 
-		
+			
 		return multiSortedLines
 
 			
